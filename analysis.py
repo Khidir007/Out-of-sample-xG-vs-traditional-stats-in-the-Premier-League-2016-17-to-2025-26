@@ -284,7 +284,7 @@ with pd.ExcelWriter("Revised_results.xlsx") as xw:
     res_dm.to_excel(xw, sheet_name="Ablation gap minus mean", index=False)
 
 SETTING, SCHEME, TARGET = "FH", "WF", "Second-half points"
-view = res_np[(res_np.setting == SETTING) & (res_np.scheme == SCHEME) & (res_np.target == TARGET)]
+view = res_dm[(res_dm.setting == SETTING) & (res_dm.scheme == SCHEME) & (res_dm.target == TARGET)]
 display(view[["model", "n_test", "oos_r2", "oos_rmse", "vs_baseline", "d_r2", "d_mse", "d_mse_lo", "d_mse_hi"]].round(4).reset_index(drop=True))
 try:
     from google.colab import files
