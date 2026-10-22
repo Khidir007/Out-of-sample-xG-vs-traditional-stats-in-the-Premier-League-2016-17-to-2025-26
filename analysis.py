@@ -46,7 +46,6 @@ def season_df(gapmode="np", pk_xg=PK_XG):
     df["GAP_NP"] = df["NON PENALTY GOALS"] - df["npxG"]
     df["GAP_NP_DM"] = df["GAP_NP"] - df.groupby("SEASON")["GAP_NP"].transform("mean")
     df["GAP"] = df[{"old": "GAP_OLD", "np": "GAP_NP", "np_dm": "GAP_NP_DM"}[gapmode]]
-    df["SHDCI_season"] = df["SECOND HALF POINTS DELTA"] - df["SECOND HALF GOALS DELTA"]
     df["year"] = df["SEASON"].astype(str).str[:4].astype(int)
     return df
 
@@ -175,8 +174,8 @@ boot.to_csv("bootstrap_results.csv", index=False)
 print("\n=== xG minus Goals: change in OOS R2, paired cluster bootstrap 95% interval ===")
 display(boot.sort_values(["design", "scheme", "target", "family"]).round(3).reset_index(drop=True))
 
-HT_COLS = ["GOALS", "xG", "SHOTS", "SHOTS ON TARGET", "GAP"]
-METRICS = ["PFS", "FSI", "HTQI", "SHDCI"]; CONTROLS = ["PRIOR_PTS", "PRIOR_XG"]
+HT_COLS = ["xG", "SHOTS", "SHOTS ON TARGET", "GAP"]
+METRICS = ["PFS", "HTQI"]; CONTROLS = ["PRIOR_PTS", "PRIOR_XG"]
 
 def make_ablation(gapmode, pre="P_"):
     df = season_df(gapmode)
@@ -199,11 +198,9 @@ def make_ablation(gapmode, pre="P_"):
             g = g.sort_values("year")
             for _, r in g.iterrows():
                 hist = g[(g["year"] < r["year"]) & (g["year"] != exclude_year)]
-                row = {"TEAM": team, "year": r["year"], "PFS": np.nan, "FSI": np.nan, "HTQI": np.nan,
-                       "SHDCI": np.nan, "PRIOR_PTS": np.nan, "PRIOR_XG": np.nan}
+                row = {"TEAM": team, "year": r["year"], "PFS": np.nan, "HTQI": np.nan, "PRIOR_PTS": np.nan, "PRIOR_XG": np.nan}
                 if len(hist):
-                    pfs = hist["GAP"].mean(); sd = hist["GAP"].std(ddof=1) if len(hist) > 1 else 0.0
-                    row.update(PFS=pfs, FSI=pfs / (1 + sd), SHDCI=hist["SHDCI_season"].mean(),
+                    row.update(PFS=hist["GAP"].mean(),
                                HTQI=hist.iloc[-1]["HTQI_season"], PRIOR_PTS=hist.iloc[-1]["POINTS"],
                                PRIOR_XG=hist.iloc[-1]["xG"])
                 out.append(row)
@@ -213,13 +210,8 @@ def make_ablation(gapmode, pre="P_"):
         S = {"Baseline: Goals": [bg], "Baseline: xG": [bx]}
         for tag, b in (("Goals", bg), ("xG", bx)):
             for m in METRICS: S[f"{tag} + {m}"] = [b, m]
-            S[f"{tag} + all four"] = [b] + METRICS
-            for m in METRICS: S[f"{tag} + all four - {m}"] = [b] + [k for k in METRICS if k != m]
             S[f"{tag} + prior points (control)"] = [b, "PRIOR_PTS"]
-            S[f"{tag} + prior xG (control)"] = [b, "PRIOR_XG"]
-            S[f"{tag} + prior points + HTQI"] = [b, "PRIOR_PTS", "HTQI"]
-            S[f"{tag} + prior points + all four"] = [b, "PRIOR_PTS"] + METRICS
-        S["Metrics only (all four)"] = list(METRICS)
+            for m in METRICS: S[f"{tag} + prior points + {m}"] = [b, "PRIOR_PTS", m]
         return S
 
     def fit_predict(train, test, cols, target):
