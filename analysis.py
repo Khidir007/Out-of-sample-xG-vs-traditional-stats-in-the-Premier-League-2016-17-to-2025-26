@@ -24,7 +24,7 @@ def pick(*names):
     raise KeyError(f"None of {names} found. Sheets: {sheets}")
 
 PK_XG = 0.76
-NBOOT = 2000
+NBOOT = 10000
 TEST_YEARS = list(range(2019, 2026))
 NAME_MAP = {"Cardiff": "Cardiff City", "Hull": "Hull City", "Ipswich": "Ipswich Town",
             "Leeds": "Leeds United", "Leicester": "Leicester City", "Luton": "Luton Town",
