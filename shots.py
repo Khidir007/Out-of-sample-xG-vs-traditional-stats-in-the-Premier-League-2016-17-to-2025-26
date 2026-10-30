@@ -98,7 +98,51 @@ def poisson_fit(M, y, off, groups, iters=60):
         beta = new
     mu = np.exp(M @ beta + off); A = M.T @ (M * mu[:, None]) + 1e-8 * np.eye(M.shape[1])
     return beta, cluster_cov(M, y - mu, groups, np.linalg.inv(A))
-out = []; off = np.log(X.e.values)
+def re_design(d):
+    F = np.column_stack([np.ones(len(d)), (d.state == "leading").astype(float), (d.state == "trailing").astype(float), d.home.astype(float)] + [(d.bin == b).astype(float) for b in range(1, 7)])
+    T = pd.get_dummies(d.ts).values.astype(float); O = pd.get_dummies(d.ots).values.astype(float)
+    return np.hstack([F, T, O]), F.shape[1], T.shape[1], O.shape[1]
+def pen_diag(nf, nt, no, st, so):
+    return np.concatenate([np.zeros(nf), np.full(nt, 1 / st), np.full(no, 1 / so)])
+def poisson_re(M, nf, nt, no, y, off, groups, outer=25, inner=30):
+    st = so = 0.05
+    beta = np.zeros(M.shape[1]); beta[0] = np.log(y.sum() / np.exp(off).sum())
+    for _ in range(outer):
+        for _ in range(inner):
+            eta = M @ beta + off; mu = np.exp(eta); z = eta - off + (y - mu) / mu
+            D = pen_diag(nf, nt, no, st, so)
+            A = M.T @ (M * mu[:, None]) + np.diag(D) + 1e-8 * np.eye(M.shape[1]); new = np.linalg.solve(A, M.T @ (mu * z))
+            if np.abs(new - beta).max() < 1e-8: beta = new; break
+            beta = new
+        C = np.linalg.inv(A); bt = beta[nf:nf + nt]; bo = beta[nf + nt:]
+        st_new = (bt @ bt + np.trace(C[nf:nf + nt, nf:nf + nt])) / nt; so_new = (bo @ bo + np.trace(C[nf + nt:, nf + nt:])) / no
+        if abs(st_new - st) + abs(so_new - so) < 1e-6: st, so = st_new, so_new; break
+        st, so = st_new, so_new
+    mu = np.exp(M @ beta + off); D = pen_diag(nf, nt, no, st, so)
+    A = M.T @ (M * mu[:, None]) + np.diag(D) + 1e-8 * np.eye(M.shape[1])
+    return beta, cluster_cov(M, y - mu, groups, np.linalg.inv(A)), np.sqrt(st), np.sqrt(so)
+def gauss_re(M, nf, nt, no, y, w, groups, outer=40):
+    st = so = 0.01; s2 = 0.01
+    for _ in range(outer):
+        D = pen_diag(nf, nt, no, st, so) * s2
+        A = M.T @ (M * w[:, None]) + np.diag(D) + 1e-8 * np.eye(M.shape[1]); C = np.linalg.inv(A); beta = C @ (M.T @ (w * y))
+        r = y - M @ beta; edf = np.trace(C @ (M.T @ (M * w[:, None]))); s2n = (w * r * r).sum() / (len(y) - edf)
+        bt = beta[nf:nf + nt]; bo = beta[nf + nt:]
+        st_n = (bt @ bt + s2n * np.trace(C[nf:nf + nt, nf:nf + nt])) / nt; so_n = (bo @ bo + s2n * np.trace(C[nf + nt:, nf + nt:])) / no
+        done = abs(st_n - st) + abs(so_n - so) < 1e-9
+        st, so, s2 = st_n, so_n, s2n
+        if done: break
+    D = pen_diag(nf, nt, no, st, so) * s2
+    A = M.T @ (M * w[:, None]) + np.diag(D) + 1e-8 * np.eye(M.shape[1])
+    return beta, cluster_cov(M, w * (y - M @ beta), groups, np.linalg.inv(A)), np.sqrt(st), np.sqrt(so)
+out = []; off = np.log(X.e.values); vc = []
+M, nf, nt, no = re_design(X)
+for y, lab in (("shots", "own shots per minute"), ("xg", "own xG per minute"), ("c_shots", "shots conceded per minute"), ("c_xg", "xG conceded per minute")):
+    b, cov, sdt, sdo = poisson_re(M, nf, nt, no, X[y].values, off, grp)
+    vc.append(dict(outcome=lab, sd_team_season=sdt, sd_opponent_season=sdo))
+    for i, s in ((1, "leading"), (2, "trailing")):
+        se = np.sqrt(cov[i, i])
+        out.append(dict(outcome=lab, controls="team-season and opponent-season random effects", state=s, rate_ratio=np.exp(b[i]), lo=np.exp(b[i] - 1.96 * se), hi=np.exp(b[i] + 1.96 * se), p=2 * (1 - stats.norm.cdf(abs(b[i] / se)))))
 for fe in (True, False):
     M = design(X, fe)
     for y, lab in (("shots", "own shots per minute"), ("xg", "own xG per minute"), ("c_shots", "shots conceded per minute"), ("c_xg", "xG conceded per minute")):
@@ -114,6 +158,12 @@ for fe in (True, False):
     for i, s in ((1, "leading"), (2, "trailing")):
         se = np.sqrt(cov[i, i])
         out.append(dict(outcome="xG per own shot (difference from level)", controls="team-season and opponent-season effects" if fe else "minute bin and venue only", state=s, rate_ratio=beta[i], lo=beta[i] - 1.96 * se, hi=beta[i] + 1.96 * se, p=2 * (1 - stats.norm.cdf(abs(beta[i] / se)))))
+Mq, nfq, ntq, noq = re_design(Q); bq, covq, sdt, sdo = gauss_re(Mq, nfq, ntq, noq, Q.q.values, Q.shots.values.astype(float), g2)
+vc.append(dict(outcome="xG per own shot", sd_team_season=sdt, sd_opponent_season=sdo))
+for i, s in ((1, "leading"), (2, "trailing")):
+    se = np.sqrt(covq[i, i])
+    out.append(dict(outcome="xG per own shot (difference from level)", controls="team-season and opponent-season random effects", state=s, rate_ratio=bq[i], lo=bq[i] - 1.96 * se, hi=bq[i] + 1.96 * se, p=2 * (1 - stats.norm.cdf(abs(bq[i] / se)))))
+pd.DataFrame(vc).to_csv("score_state_variance_components.csv", index=False)
 res = pd.DataFrame(out); res.to_csv("score_state_model.csv", index=False)
 print(res.round(4).to_string())
 
