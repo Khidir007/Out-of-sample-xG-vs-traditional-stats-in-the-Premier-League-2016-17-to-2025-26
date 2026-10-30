@@ -4,8 +4,7 @@ title: "Code for: Expected goals versus traditional statistics as predictors in 
 authors:
   - family-names: Sadiq
     given-names: Khidir Bello
-version: 0.3.0
-doi: 10.5281/zenodo.23795497
+version: 0.3.1
 date-released: 2026-10-30
 license: MIT
 repository-code: "https://github.com/Khidir007/Out-of-sample-xG-vs-traditional-stats-in-the-Premier-League-2016-17-to-2025-26"
