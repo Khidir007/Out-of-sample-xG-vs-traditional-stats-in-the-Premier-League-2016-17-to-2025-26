@@ -26,3 +26,5 @@ See `CITATION.cff`. A Zenodo DOI is minted for each tagged release.
 
 `fair_elo.py` runs the like-for-like comparison of Elo and the four-match and season-to-date goal and xG models (Design B, walk-forward) and writes `benchmark_fair.csv`.
 
+`poisson_bench.py` fits the Poisson team-strength benchmark (goals and xG as the response, penalty set by its first argument, default 0.005) and compares it with Elo and the season-to-date xG model on the same rows. It needs `fair_elo.py` in the same folder and writes `benchmark_poisson.csv`.
+
