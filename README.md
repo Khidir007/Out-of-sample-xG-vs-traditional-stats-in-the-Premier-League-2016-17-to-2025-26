@@ -5,7 +5,7 @@ Files
 `analysis.py` runs the main analysis from one Excel workbook (sheets: season table, weekly team results). Outputs: persistence, bootstrap and ablation tables.
 `robustness.py` repeats the primary comparisons with 10,000 bootstrap resamples and two seeds, adds a match-level bootstrap for Design B. Output: `robustness_results.csv`.
 `extended.py` runs the extended ablation (goals baseline, attack-plus-defence inputs, previous-season points and xG controls, FSI), the Elo benchmark and the team-cluster bootstrap interval for persistence. Outputs: `ablation_extended.csv`, `attack_defence_comparison.csv`, `benchmark_elo.csv`, `persistence_team_cluster.csv`, `prior_gap_counts.csv`.
-`shots.py` rebuilds the score state from the shot records, computes the exposure in each state, fits the Poisson model with an exposure offset (random team-season and opponent-season intercepts by penalised quasi-likelihood, with a fixed-effects check) and correlates SHDCI with the shot-level difference. It also runs the shot-based penalty check. Outputs: `penalty_proxy.csv`, `score_state_totals.csv`, `score_state_model.csv`, `score_state_variance_components.csv`, `shdci_correlation.csv`. It reads the shot and match files named by the `SHOTS` and `MATCHES` environment variables.
+`shots.py` rebuilds the score state from the shot records, computes the exposure in each state, fits the Poisson model with an exposure offset (team-season and opponent-season fixed effects as the primary model, with random intercepts by penalised quasi-likelihood as a sensitivity check) and correlates SHDCI with the shot-level difference. It also runs the shot-based penalty check. Outputs: `penalty_proxy.csv`, `score_state_totals.csv`, `score_state_model.csv`, `score_state_variance_components.csv`, `shdci_correlation.csv`, `score_state_reconstruction_check.csv`, `score_state_dispersion.csv`, `score_state_heterogeneity.csv`. It reads the shot and match files named by the `SHOTS` and `MATCHES` environment variables.
 Run
     pip install -r requirements.txt
     python analysis.py
@@ -23,4 +23,6 @@ License
 The code is released under the MIT License (see `LICENSE`). The licence covers the code only. It does not cover Understat or FBref data.
 Citation
 See `CITATION.cff`. A Zenodo DOI is minted for each tagged release.
+
+`fair_elo.py` runs the like-for-like comparison of Elo and the four-match and season-to-date goal and xG models (Design B, walk-forward) and writes `benchmark_fair.csv`.
 
