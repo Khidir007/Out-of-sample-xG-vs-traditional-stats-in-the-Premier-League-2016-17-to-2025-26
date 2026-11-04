@@ -28,3 +28,5 @@ See `CITATION.cff`. A Zenodo DOI is minted for each tagged release.
 
 `poisson_bench.py` fits the Poisson team-strength benchmark (goals and xG as the response, penalty set by its first argument, default 0.005) and compares it with Elo and the season-to-date xG model on the same rows. It needs `fair_elo.py` in the same folder and writes `benchmark_poisson.csv`.
 
+`shots_robust.py` repeats the score-state period split without matches whose last reconstructed state disagrees with the final result (argument `agree`) and without the time after 90 minutes (argument `no90`), and writes `het_agree.csv` or `het_no90.csv`. It uses the same inputs as `shots.py`.
+
